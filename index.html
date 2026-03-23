@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JPG/PNG → SVG (browser)</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <h1>Raster → SVG</h1>
+        <p class="subtitle">
+          JPG/PNG traced in your browser with
+          <a href="https://github.com/jankovicsandras/imagetracerjs" target="_blank" rel="noopener">imagetracerjs</a>.
+          Palette 2–8 colors (default ~4).
+        </p>
+      </header>
+
+      <section class="panel workspace">
+        <div class="workspace-toolbar">
+          <label class="dropzone workspace-dropzone" id="dropzone">
+            <input type="file" id="fileInput" accept="image/jpeg,image/png,image/jpg" hidden />
+            <span class="dropzone-text">Choose image or drop here</span>
+          </label>
+          <div class="workspace-side">
+            <div class="row workspace-colors-row">
+              <label for="colorCount">Colors</label>
+              <input type="range" id="colorCount" min="2" max="8" value="4" step="1" />
+              <output id="colorCountOut" for="colorCount">4</output>
+            </div>
+            <div class="palette-picker-block">
+              <div class="palette-picker-label">Trace palette</div>
+              <div class="palette-picker-panel" id="palettePickerPanel">
+                <p class="hint palette-picker-hint">
+                  Swatches are chosen from the image (same scaled raster as tracing) to spread apart in perceptual color
+                  space. Click a swatch, then click the preview image to set that color. Change the color count to
+                  re-sample automatically.
+                </p>
+                <div class="palette-swatches-row">
+                  <div class="palette-swatches" id="paletteSwatches" role="list" aria-label="Trace palette colors"></div>
+                  <button
+                    type="button"
+                    id="btnPaletteResample"
+                    class="palette-resample-btn"
+                    aria-label="Re-sample palette from image"
+                    title="Re-sample from image"
+                  >
+                    <svg class="palette-resample-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                      <path
+                        fill="currentColor"
+                        d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p class="hint" id="scaleNote" hidden></p>
+            <p class="error" id="errorBox" hidden></p>
+            <p class="status" id="statusBox">No image loaded.</p>
+          </div>
+        </div>
+
+        <h2 class="workspace-section-title">Preview</h2>
+        <div class="preview-grid">
+          <div class="preview-card">
+            <h3>Source &amp; exclusion mask</h3>
+            <p class="mask-help" id="maskHelp" hidden>
+              Paint with <strong>Exclude</strong> to omit regions. Each separate painted area uses the
+              <strong>average color along its own edge</strong> (8-connected regions). Multiple disconnected selections get independent fills for trace and preview.
+            </p>
+            <div class="mask-toolbar" id="maskToolbar" hidden>
+              <label class="mask-field">
+                Tool
+                <select id="maskTool" aria-label="Mask tool">
+                  <option value="exclude">Exclude (paint)</option>
+                  <option value="include">Erase mask</option>
+                </select>
+              </label>
+              <label class="mask-field">
+                Size
+                <input type="range" id="brushSize" min="4" max="96" value="28" />
+                <output id="brushSizeOut" for="brushSize">28</output>
+              </label>
+              <button type="button" id="btnClearMask">Clear mask</button>
+            </div>
+            <div class="preview-frame preview-frame--mask" id="originalHost"></div>
+          </div>
+          <div class="preview-card">
+            <h3>SVG</h3>
+            <div class="preview-frame preview-frame--svg" id="svgHost"></div>
+          </div>
+        </div>
+
+        <div class="print-safe-panel">
+          <label class="print-safe-toggle">
+            <input type="checkbox" id="printSafeEnabled" />
+            <span>3D print safe (preview + export)</span>
+          </label>
+          <p class="print-safe-hint">
+            Sets SVG <strong>width</strong> in mm and clamps each <code>&lt;path&gt;</code>
+            <strong>stroke-width</strong> to at least the nozzle size (user units). Previews match the export when values are valid. Does not widen narrow gaps <em>inside</em> a single filled path.
+          </p>
+          <div class="print-safe-fields" id="printSafeFields" hidden>
+            <label class="print-safe-field">
+              Width (mm)
+              <input type="number" id="printSafeWidthMm" min="1" max="2000" step="0.1" value="120" />
+            </label>
+            <label class="print-safe-field">
+              Min nozzle / line (mm)
+              <input type="number" id="printSafeNozzleMm" min="0.05" max="50" step="0.05" value="0.4" />
+            </label>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" id="btnDownloadSvg" disabled>Download combined SVG</button>
+          <button type="button" id="btnDownloadZip" disabled>Download layers (ZIP)</button>
+        </div>
+
+        <h2 class="workspace-section-title workspace-section-title--colors">Colors</h2>
+        <p class="colors-hint" id="colorsHint" hidden>
+          Click the card to select (multi-select). <strong>Merge selected</strong> replaces those fills with their average color. Use the eye to view a layer fullscreen.
+        </p>
+        <div class="colors-toolbar" id="colorsToolbar" hidden>
+          <button type="button" id="btnMergeColors" disabled>Merge selected</button>
+          <button type="button" id="btnClearColorSelection" disabled>Clear selection</button>
+        </div>
+        <p class="colors-empty" id="colorsEmpty">Load an image to see per-color layers.</p>
+        <div class="colors-grid" id="colorsGrid" hidden></div>
+      </section>
+    </div>
+
+    <div
+      id="layerLightbox"
+      class="layer-lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Layer fullscreen preview"
+      hidden
+    >
+      <button type="button" class="layer-lightbox-backdrop" aria-label="Close preview"></button>
+      <div class="layer-lightbox-content">
+        <button type="button" class="layer-lightbox-close" aria-label="Close">&times;</button>
+        <div class="layer-lightbox-inner" id="layerLightboxInner"></div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/imagetracerjs@1.2.6/imagetracer_v1.2.6.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
