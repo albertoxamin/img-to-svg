@@ -19,6 +19,14 @@
   var statusBox = document.getElementById("statusBox");
   var btnDownloadSvg = document.getElementById("btnDownloadSvg");
   var btnDownloadZip = document.getElementById("btnDownloadZip");
+  var btnDownloadBambu3mf = document.getElementById("btnDownloadBambu3mf");
+  var btn3dPrintSelected = document.getElementById("btn3dPrintSelected");
+  var bambu3mfPanel = document.getElementById("bambu3mfPanel");
+  var bambuCylinderDiamMm = document.getElementById("bambuCylinderDiamMm");
+  var bambuCylinderHeightMm = document.getElementById("bambuCylinderHeightMm");
+  var bambuPlateCenterXMm = document.getElementById("bambuPlateCenterXMm");
+  var bambuPlateCenterYMm = document.getElementById("bambuPlateCenterYMm");
+  var bambuEmbossDepthMm = document.getElementById("bambuEmbossDepthMm");
   var originalStageHost = document.getElementById("originalStageHost");
   var svgHost = document.getElementById("svgHost");
   var colorsEmpty = document.getElementById("colorsEmpty");
@@ -37,6 +45,7 @@
   var brushSize = document.getElementById("brushSize");
   var brushSizeOut = document.getElementById("brushSizeOut");
   var btnClearMask = document.getElementById("btnClearMask");
+  var registrationMarksEnabled = document.getElementById("registrationMarksEnabled");
   var printSafeEnabled = document.getElementById("printSafeEnabled");
   var printSafeFields = document.getElementById("printSafeFields");
   var printSafeWidthMm = document.getElementById("printSafeWidthMm");
@@ -794,9 +803,38 @@
     updateMergeControls();
   }
 
+  function hideBambuStudioPanel() {
+    if (bambu3mfPanel) bambu3mfPanel.hidden = true;
+    updateBambuExportControls();
+  }
+
+  /** Layer rows for colors currently selected in the grid (order matches card order). */
+  function getSelectedLayersForBambu() {
+    var out = [];
+    for (var i = 0; i < lastLayers.length; i++) {
+      if (selectedHexes.has(lastLayers[i].hex)) out.push(lastLayers[i]);
+    }
+    return out;
+  }
+
+  function updateBambuExportControls() {
+    if (bambu3mfPanel && selectedHexes.size === 0) {
+      bambu3mfPanel.hidden = true;
+    }
+    var panelOpen = bambu3mfPanel && !bambu3mfPanel.hidden;
+    if (btn3dPrintSelected) {
+      btn3dPrintSelected.disabled = lastLayers.length === 0 || selectedHexes.size < 1;
+    }
+    if (btnDownloadBambu3mf) {
+      var nSel = getSelectedLayersForBambu().length;
+      btnDownloadBambu3mf.disabled = !panelOpen || nSel === 0;
+    }
+  }
+
   function updateMergeControls() {
     btnMergeColors.disabled = selectedHexes.size < 2 || !lastCombinedSvg;
     btnClearColorSelection.disabled = selectedHexes.size === 0;
+    updateBambuExportControls();
   }
 
   function clearColorSelection() {
@@ -805,6 +843,7 @@
     for (var i = 0; i < cards.length; i++) {
       cards[i].classList.remove("selected");
     }
+    hideBambuStudioPanel();
     updateMergeControls();
   }
 
@@ -873,6 +912,60 @@
     updateColorsPanelChrome();
   }
 
+  /**
+   * Same corner squares in every layer SVG (user space) so multi-layer / Bambu overlays stay aligned.
+   * Filled with the layer color so each modifier remains a single filament.
+   */
+  function appendRegistrationMarksToLayerSvg(svgEl, hexKey) {
+    var xmlns = "http://www.w3.org/2000/svg";
+    var vb = parseViewBoxNumbers(svgEl.getAttribute("viewBox"));
+    if (!vb) {
+      var wAttr = parseFloat(svgEl.getAttribute("width"));
+      var hAttr = parseFloat(svgEl.getAttribute("height"));
+      if (wAttr > 0 && hAttr > 0 && !isNaN(wAttr) && !isNaN(hAttr)) {
+        vb = { minX: 0, minY: 0, w: wAttr, h: hAttr };
+      } else {
+        return;
+      }
+    }
+    var mx = vb.minX;
+    var my = vb.minY;
+    var w = vb.w;
+    var h = vb.h;
+    var dim = Math.min(w, h);
+    var inset = Math.max(1.5, dim * 0.014);
+    var side = Math.max(3, Math.min(dim * 0.028, dim * 0.06));
+    if (inset + side > dim * 0.45) {
+      side = Math.max(2, dim * 0.02);
+      inset = Math.max(1, dim * 0.01);
+    }
+
+    var fillAttr = hexKey.indexOf("#") === 0 ? hexKey : "#" + hexKey;
+
+    var g = document.createElementNS(xmlns, "g");
+    g.setAttribute("id", "img-to-svg-registration");
+    g.setAttribute("class", "registration-marks");
+    g.setAttribute("aria-hidden", "true");
+
+    function cornerRect(cx, cy) {
+      var r = document.createElementNS(xmlns, "rect");
+      r.setAttribute("x", String(Math.round(cx * 1000) / 1000));
+      r.setAttribute("y", String(Math.round(cy * 1000) / 1000));
+      r.setAttribute("width", String(Math.round(side * 1000) / 1000));
+      r.setAttribute("height", String(Math.round(side * 1000) / 1000));
+      r.setAttribute("fill", fillAttr);
+      r.setAttribute("stroke", "none");
+      return r;
+    }
+
+    g.appendChild(cornerRect(mx + inset, my + inset));
+    g.appendChild(cornerRect(mx + w - inset - side, my + inset));
+    g.appendChild(cornerRect(mx + inset, my + h - inset - side));
+    g.appendChild(cornerRect(mx + w - inset - side, my + h - inset - side));
+
+    svgEl.appendChild(g);
+  }
+
   function splitSvgByFill(svgString) {
     var parser = new DOMParser();
     var doc = parser.parseFromString(svgString, "image/svg+xml");
@@ -913,6 +1006,9 @@
       }
       for (var j = 0; j < nodes.length; j++) {
         outSvg.appendChild(nodes[j].cloneNode(true));
+      }
+      if (registrationMarksEnabled && registrationMarksEnabled.checked) {
+        appendRegistrationMarksToLayerSvg(outSvg, hexKey);
       }
       var ser = new XMLSerializer();
       result.push({
@@ -1194,6 +1290,7 @@
       colorsHint.hidden = true;
       colorsToolbar.hidden = true;
       selectedHexes.clear();
+      hideBambuStudioPanel();
       updateMergeControls();
       return;
     }
@@ -1282,6 +1379,7 @@
     statusBox.textContent = "Tracing…";
     btnDownloadSvg.disabled = true;
     btnDownloadZip.disabled = true;
+    hideBambuStudioPanel();
 
     window.setTimeout(function () {
       try {
@@ -1291,6 +1389,7 @@
           statusBox.textContent = "Could not read pixels for tracing.";
           btnDownloadSvg.disabled = !lastCombinedSvg;
           btnDownloadZip.disabled = lastLayers.length === 0;
+          updateBambuExportControls();
           return;
         }
         var svgString = window.ImageTracer.imagedataToSVG(imgd, buildTracerOptions(n));
@@ -1298,6 +1397,7 @@
         selectedHexes.clear();
         lastLayers = splitSvgByFill(svgString);
         refreshSvgPreviews();
+        hideBambuStudioPanel();
         renderColorLayers(lastLayers);
         btnDownloadSvg.disabled = false;
         btnDownloadZip.disabled = lastLayers.length === 0;
@@ -1491,6 +1591,18 @@
     clearColorSelection();
   });
 
+  if (btn3dPrintSelected) {
+    btn3dPrintSelected.addEventListener("click", function () {
+      if (selectedHexes.size < 1 || !lastLayers.length) return;
+      if (bambu3mfPanel) {
+        bambu3mfPanel.hidden = false;
+        updateBambuExportControls();
+        bambu3mfPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        if (bambuCylinderDiamMm) bambuCylinderDiamMm.focus();
+      }
+    });
+  }
+
   btnDownloadZip.addEventListener("click", function () {
     if (!lastLayers.length || typeof window.JSZip !== "function") {
       setError("JSZip not loaded.");
@@ -1522,6 +1634,79 @@
     });
   });
 
+  if (btnDownloadBambu3mf) {
+    btnDownloadBambu3mf.addEventListener("click", function () {
+      if (typeof window.JSZip !== "function") {
+        setError("JSZip not loaded.");
+        return;
+      }
+      if (typeof window.buildBambu3mfZip !== "function") {
+        setError("Bambu 3MF builder not loaded.");
+        return;
+      }
+      if (!lastLayers.length) {
+        setError("Trace the image first to build color layers.");
+        return;
+      }
+      if (!bambu3mfPanel || bambu3mfPanel.hidden) {
+        setError('Use “3D print selected…” in the layer toolbar to open Bambu Studio options.');
+        return;
+      }
+      var bambuLayers = getSelectedLayersForBambu();
+      if (bambuLayers.length === 0) {
+        setError("Select one or more layer colors to export in the 3MF.");
+        return;
+      }
+      setError("");
+      var diam = bambuCylinderDiamMm ? parseFloat(bambuCylinderDiamMm.value) : 100;
+      var heightMm = bambuCylinderHeightMm ? parseFloat(bambuCylinderHeightMm.value) : 3;
+      var plateCx = bambuPlateCenterXMm ? parseFloat(bambuPlateCenterXMm.value) : 128;
+      var plateCy = bambuPlateCenterYMm ? parseFloat(bambuPlateCenterYMm.value) : 128;
+      var depthMm = bambuEmbossDepthMm ? parseFloat(bambuEmbossDepthMm.value) : 0.6;
+      if (!(diam > 0) || !(heightMm > 0)) {
+        setError("Bambu 3MF: enter a positive cylinder diameter and height (mm).");
+        return;
+      }
+      var nozzleMm = printSafeNozzleMm ? parseFloat(printSafeNozzleMm.value) : NaN;
+      if (!(nozzleMm > 0)) {
+        nozzleMm = 0.4;
+      }
+      var exportLayers = [];
+      for (var bi = 0; bi < bambuLayers.length; bi++) {
+        var scaledForPrint = apply3dPrintSafeSvg(bambuLayers[bi].svg, diam, nozzleMm);
+        exportLayers.push({
+          hex: bambuLayers[bi].hex,
+          svg: scaledForPrint,
+        });
+      }
+      window
+        .buildBambu3mfZip({
+          layers: exportLayers,
+          JSZip: window.JSZip,
+          diameterMm: diam,
+          heightMm: heightMm,
+          embossDepthMm: depthMm,
+          plateCenterXMm: plateCx,
+          plateCenterYMm: plateCy,
+          objectName: lastBaseName + " — cylinder (top) + SVG modifiers",
+        })
+        .then(function (blob) {
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = lastBaseName + "-bambu.3mf";
+          a.click();
+          URL.revokeObjectURL(a.href);
+          statusBox.textContent =
+            "Bambu 3MF exported — cylinder (top-face modifiers) + " +
+            exportLayers.length +
+            " selected SVG modifier volume(s).";
+        })
+        .catch(function (err) {
+          setError(err && err.message ? err.message : String(err));
+        });
+    });
+  }
+
   brushSize.addEventListener("input", function () {
     brushSizeOut.textContent = brushSize.value;
   });
@@ -1537,6 +1722,12 @@
     printSafeFields.hidden = !printSafeEnabled.checked;
     debouncedPrintSafePreview();
   });
+
+  if (registrationMarksEnabled) {
+    registrationMarksEnabled.addEventListener("change", function () {
+      if (lastCombinedSvg) applyMergedSvg();
+    });
+  }
 
   printSafeWidthMm.addEventListener("input", function () {
     debouncedPrintSafePreview();

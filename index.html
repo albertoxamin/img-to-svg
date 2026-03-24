@@ -241,9 +241,19 @@
           <button type="button" id="btnDownloadZip" class="btn-primary" disabled>Download layers (ZIP)</button>
         </div>
 
+        <div class="registration-marks-option">
+          <label class="print-safe-toggle">
+            <input type="checkbox" id="registrationMarksEnabled" checked />
+            <span>Add corner registration marks on color layers</span>
+          </label>
+          <p class="hint registration-marks-hint">
+            Same small squares at the viewBox corners on every layer so ZIP / Bambu overlays stay aligned. Combined SVG is unchanged.
+          </p>
+        </div>
+
         <h2 class="workspace-section-title workspace-section-title--colors">Layers by color</h2>
         <p class="colors-hint" id="colorsHint" hidden>
-          Click cards to multi-select. <strong>Merge selected</strong> averages those fills. The eye icon opens a fullscreen preview.
+          Click cards to multi-select. <strong>Merge selected</strong> averages those fills. <strong>3D print selected…</strong> opens Bambu Studio options and exports only the colors you selected. The eye icon opens a fullscreen preview.
           <span class="hint-inline-wrap">
             <button type="button" class="help-toggle" aria-expanded="false" aria-controls="colorsHelpBody" id="colorsHelpBtn">
               More
@@ -256,9 +266,40 @@
         <div class="colors-toolbar" id="colorsToolbar" hidden>
           <button type="button" id="btnMergeColors" disabled>Merge selected</button>
           <button type="button" id="btnClearColorSelection" disabled>Clear selection</button>
+          <button type="button" id="btn3dPrintSelected" class="btn-primary" disabled>3D print selected…</button>
         </div>
         <p class="colors-empty" id="colorsEmpty">After tracing, each fill color appears as a layer card below.</p>
         <div class="colors-grid" id="colorsGrid" hidden></div>
+
+        <div class="bambu-3mf-panel" id="bambu3mfPanel" aria-label="Bambu Studio 3MF export" hidden>
+          <p class="bambu-3mf-title">Bambu Studio 3MF</p>
+          <p class="hint bambu-3mf-hint">
+            Exports <strong>only the layer colors you have selected</strong> above (one SVG modifier per selected color). Vertical <strong>cylinder</strong> on the bed; modifiers sit on the <strong>flat top face</strong>. The whole model moves to the plate center you set (default 128, 128 mm). Minimum stroke uses <strong>Min nozzle / line (mm)</strong> (default 0.4 mm) without enabling 3D print safe.
+          </p>
+          <div class="bambu-3mf-fields">
+            <label class="bambu-3mf-field">
+              Cylinder diameter (mm)
+              <input type="number" id="bambuCylinderDiamMm" min="1" max="2000" step="0.1" value="100" />
+            </label>
+            <label class="bambu-3mf-field">
+              Cylinder height (mm)
+              <input type="number" id="bambuCylinderHeightMm" min="0.1" max="2000" step="0.1" value="3" />
+            </label>
+            <label class="bambu-3mf-field">
+              Plate center X (mm)
+              <input type="number" id="bambuPlateCenterXMm" min="0" max="500" step="0.1" value="128" />
+            </label>
+            <label class="bambu-3mf-field">
+              Plate center Y (mm)
+              <input type="number" id="bambuPlateCenterYMm" min="0" max="500" step="0.1" value="128" />
+            </label>
+            <label class="bambu-3mf-field">
+              Emboss depth (mm)
+              <input type="number" id="bambuEmbossDepthMm" min="0.05" max="50" step="0.05" value="0.6" />
+            </label>
+          </div>
+          <button type="button" id="btnDownloadBambu3mf" class="btn-primary" disabled>Download Bambu 3MF</button>
+        </div>
       </section>
       </main>
     </div>
@@ -280,6 +321,7 @@
 
     <script src="https://unpkg.com/imagetracerjs@1.2.6/imagetracer_v1.2.6.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="bambu3mf.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
