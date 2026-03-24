@@ -3,7 +3,65 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JPG/PNG → SVG (browser)</title>
+    <title>Raster to SVG — Free JPG &amp; PNG to SVG converter in your browser</title>
+    <meta
+      name="description"
+      content="Convert JPG and PNG to SVG online for free. Browser-based image tracing with imagetracerjs: custom color palettes (2–8 colors), exclusion masks, per-color layers, ZIP export, and 3D-print-safe SVG options. No upload to a server."
+    />
+    <meta
+      name="keywords"
+      content="jpg to svg, png to svg, image to svg, raster to vector, svg converter, browser, free, imagetracer, trace image"
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://albertoxamin.github.io/img-to-svg/" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#0f1419" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:site_name" content="Raster to SVG" />
+    <meta property="og:title" content="Raster to SVG — Free JPG &amp; PNG to SVG in your browser" />
+    <meta
+      property="og:description"
+      content="Trace JPG/PNG to SVG locally in your browser. Palettes, masks, layered export, and 3D-print-safe SVG. No server upload."
+    />
+    <meta property="og:url" content="https://albertoxamin.github.io/img-to-svg/" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Raster to SVG — Free JPG &amp; PNG to SVG in your browser" />
+    <meta
+      name="twitter:description"
+      content="Trace JPG/PNG to SVG locally in your browser. Palettes, masks, layered export, and 3D-print-safe SVG."
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Raster to SVG",
+        "alternateName": "img-to-svg",
+        "description": "Free browser tool to convert JPG and PNG images to SVG using vector tracing. Supports custom color palettes, exclusion masks, per-color layers, ZIP download, and 3D-print-safe export. Processing runs in the client; images are not sent to a server.",
+        "url": "https://albertoxamin.github.io/img-to-svg/",
+        "applicationCategory": "DesignApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript. Modern web browser.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "featureList": [
+          "JPG and PNG to SVG conversion",
+          "2–8 color trace palettes with manual swatch picking",
+          "Exclusion mask painting for trace regions",
+          "Per-color layer merge and fullscreen preview",
+          "Combined SVG and layered ZIP export",
+          "3D print safe width and minimum stroke options"
+        ],
+        "isAccessibleForFree": true
+      }
+    </script>
+
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -17,6 +75,7 @@
         </p>
       </header>
 
+      <main>
       <section class="panel workspace">
         <div class="workspace-toolbar">
           <label class="dropzone workspace-dropzone" id="dropzone">
@@ -130,6 +189,7 @@
         <p class="colors-empty" id="colorsEmpty">Load an image to see per-color layers.</p>
         <div class="colors-grid" id="colorsGrid" hidden></div>
       </section>
+      </main>
     </div>
 
     <div
