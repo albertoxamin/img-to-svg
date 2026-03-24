@@ -19,7 +19,7 @@
   var statusBox = document.getElementById("statusBox");
   var btnDownloadSvg = document.getElementById("btnDownloadSvg");
   var btnDownloadZip = document.getElementById("btnDownloadZip");
-  var originalHost = document.getElementById("originalHost");
+  var originalStageHost = document.getElementById("originalStageHost");
   var svgHost = document.getElementById("svgHost");
   var colorsEmpty = document.getElementById("colorsEmpty");
   var colorsGrid = document.getElementById("colorsGrid");
@@ -29,6 +29,10 @@
   var btnClearColorSelection = document.getElementById("btnClearColorSelection");
   var maskToolbar = document.getElementById("maskToolbar");
   var maskHelp = document.getElementById("maskHelp");
+  var maskHelpBody = document.getElementById("maskHelpBody");
+  var maskHelpBtn = document.getElementById("maskHelpBtn");
+  var sourcePreviewToolbox = document.getElementById("sourcePreviewToolbox");
+  var btnToggleMaskEdit = document.getElementById("btnToggleMaskEdit");
   var maskTool = document.getElementById("maskTool");
   var brushSize = document.getElementById("brushSize");
   var brushSizeOut = document.getElementById("brushSizeOut");
@@ -61,6 +65,7 @@
   var pickedPalette = [];
   var selectedPaletteIndex = 0;
   var samplingFromImage = false;
+  var maskEditActive = false;
   /** Snapshot of the first scaled trace raster (clone); palette swatches are sampled from this. */
   var sourceTraceImageData = null;
 
@@ -491,6 +496,12 @@
   function clearPaletteSamplingMode() {
     samplingFromImage = false;
     if (overlayCanvas) overlayCanvas.classList.remove("sampling-palette");
+    syncOverlayPaintCursor();
+  }
+
+  function syncOverlayPaintCursor() {
+    if (!overlayCanvas) return;
+    overlayCanvas.classList.toggle("mask-layer--paint-ready", maskEditActive);
   }
 
   function renderPaletteSwatches() {
@@ -939,6 +950,10 @@
     if (!overlayCtx || !maskCanvas || !overlayCanvas || !scaledForTrace) return;
     var w = overlayCanvas.width;
     var h = overlayCanvas.height;
+    if (!maskEditActive) {
+      overlayCtx.clearRect(0, 0, w, h);
+      return;
+    }
     var srcCtx = scaledForTrace.canvas.getContext("2d");
     if (!srcCtx) return;
     var src = srcCtx.getImageData(0, 0, w, h);
@@ -1050,24 +1065,21 @@
   }
 
   function onWindowMouseUp() {
-    window.removeEventListener("mousemove", onWindowMouseMove);
-    window.removeEventListener("mouseup", onWindowMouseUp);
-    if (isPainting) {
-      isPainting = false;
-      debouncedMaskTrace();
-    }
+    endMaskPaintingStroke();
   }
 
   function onOverlayMouseDown(e) {
     if (e.button !== 0 || !overlayCanvas) return;
-    e.preventDefault();
     if (samplingFromImage) {
+      e.preventDefault();
       sampleColorFromImageAtClient(e.clientX, e.clientY);
       clearPaletteSamplingMode();
       statusBox.textContent = "Palette color updated.";
       renderPaletteSwatches();
       return;
     }
+    if (!maskEditActive) return;
+    e.preventDefault();
     isPainting = true;
     var p = getCanvasCoords(overlayCanvas, e.clientX, e.clientY);
     lastPaintX = p.x;
@@ -1090,19 +1102,13 @@
   var touchMoveOpts = { passive: false };
 
   function onWindowTouchEnd() {
-    window.removeEventListener("touchmove", onWindowTouchMove, touchMoveOpts);
-    window.removeEventListener("touchend", onWindowTouchEnd);
-    window.removeEventListener("touchcancel", onWindowTouchEnd);
-    if (isPainting) {
-      isPainting = false;
-      debouncedMaskTrace();
-    }
+    endMaskPaintingStroke();
   }
 
   function onOverlayTouchStart(e) {
     if (!overlayCanvas || !e.touches.length) return;
-    e.preventDefault();
     if (samplingFromImage) {
+      e.preventDefault();
       var t0 = e.touches[0];
       sampleColorFromImageAtClient(t0.clientX, t0.clientY);
       clearPaletteSamplingMode();
@@ -1110,6 +1116,8 @@
       renderPaletteSwatches();
       return;
     }
+    if (!maskEditActive) return;
+    e.preventDefault();
     isPainting = true;
     var t = e.touches[0];
     var p = getCanvasCoords(overlayCanvas, t.clientX, t.clientY);
@@ -1123,9 +1131,22 @@
 
   function renderOriginalWithMask() {
     if (!scaledForTrace || !scaledForTrace.canvas) return;
-    originalHost.innerHTML = "";
-    maskToolbar.hidden = false;
-    maskHelp.hidden = false;
+    endMaskPaintingStroke();
+    originalStageHost.innerHTML = "";
+    maskEditActive = false;
+    if (btnToggleMaskEdit) {
+      btnToggleMaskEdit.setAttribute("aria-pressed", "false");
+      btnToggleMaskEdit.classList.remove("preview-toolbox-btn--active");
+      btnToggleMaskEdit.title = "Exclusion mask";
+      btnToggleMaskEdit.setAttribute("aria-label", "Paint exclusion mask on the source image");
+    }
+    maskToolbar.hidden = true;
+    maskHelp.hidden = true;
+    if (maskHelpBody && maskHelpBtn) {
+      maskHelpBody.hidden = true;
+      maskHelpBtn.setAttribute("aria-expanded", "false");
+    }
+    if (sourcePreviewToolbox) sourcePreviewToolbox.hidden = false;
 
     var tw = scaledForTrace.tw;
     var th = scaledForTrace.th;
@@ -1148,12 +1169,13 @@
     overlayCtx = overlayCanvas.getContext("2d");
     stage.appendChild(overlayCanvas);
 
-    originalHost.appendChild(stage);
+    originalStageHost.appendChild(stage);
 
     redrawMaskOverlay();
 
     overlayCanvas.addEventListener("mousedown", onOverlayMouseDown);
     overlayCanvas.addEventListener("touchstart", onOverlayTouchStart, { passive: false });
+    syncOverlayPaintCursor();
   }
 
   function renderCombinedSvg(svgString) {
@@ -1301,6 +1323,47 @@
     }
   }, PRINT_SAFE_PREVIEW_DEBOUNCE_MS);
 
+  function endMaskPaintingStroke() {
+    window.removeEventListener("mousemove", onWindowMouseMove);
+    window.removeEventListener("mouseup", onWindowMouseUp);
+    window.removeEventListener("touchmove", onWindowTouchMove, touchMoveOpts);
+    window.removeEventListener("touchend", onWindowTouchEnd);
+    window.removeEventListener("touchcancel", onWindowTouchEnd);
+    if (isPainting) {
+      isPainting = false;
+      debouncedMaskTrace();
+    }
+  }
+
+  function setMaskEditActive(on) {
+    on = !!on;
+    if (!on) {
+      endMaskPaintingStroke();
+    } else if (samplingFromImage) {
+      clearPaletteSamplingMode();
+      renderPaletteSwatches();
+      statusBox.textContent = "Pick-from-image cancelled.";
+    }
+    maskEditActive = on;
+    if (btnToggleMaskEdit) {
+      btnToggleMaskEdit.setAttribute("aria-pressed", on ? "true" : "false");
+      btnToggleMaskEdit.classList.toggle("preview-toolbox-btn--active", on);
+      btnToggleMaskEdit.title = on ? "Close mask editor" : "Exclusion mask";
+      btnToggleMaskEdit.setAttribute(
+        "aria-label",
+        on ? "Close exclusion mask editor" : "Paint exclusion mask on the source image"
+      );
+    }
+    maskToolbar.hidden = !on;
+    maskHelp.hidden = !on;
+    if (!on && maskHelpBody && maskHelpBtn) {
+      maskHelpBody.hidden = true;
+      maskHelpBtn.setAttribute("aria-expanded", "false");
+    }
+    syncOverlayPaintCursor();
+    redrawMaskOverlay();
+  }
+
   function onImageReady(img, baseName) {
     loadedImage = img;
     lastBaseName = baseName || "trace";
@@ -1356,8 +1419,8 @@
     img.onerror = function () {
       setError("Could not read image.");
       statusBox.textContent = "Load failed.";
-      maskToolbar.hidden = true;
-      maskHelp.hidden = true;
+      if (sourcePreviewToolbox) sourcePreviewToolbox.hidden = true;
+      setMaskEditActive(false);
       sourceTraceImageData = null;
       var ne = parseInt(colorCount.value, 10);
       syncPaletteFromSourceImage(isNaN(ne) ? DEFAULT_COLORS : ne);
@@ -1488,6 +1551,12 @@
     });
   }
 
+  if (btnToggleMaskEdit) {
+    btnToggleMaskEdit.addEventListener("click", function () {
+      setMaskEditActive(!maskEditActive);
+    });
+  }
+
   syncPaletteFromSourceImage(
     Math.max(MIN_COLORS, Math.min(MAX_COLORS, parseInt(colorCount.value, 10) || DEFAULT_COLORS))
   );
@@ -1513,10 +1582,25 @@
       clearPaletteSamplingMode();
       statusBox.textContent = "Pick-from-image cancelled.";
       renderPaletteSwatches();
+      return;
+    }
+    if (maskEditActive) {
+      setMaskEditActive(false);
     }
   });
 
   if (!window.ImageTracer || typeof window.ImageTracer.imagedataToSVG !== "function") {
     setError("ImageTracer failed to load. Check network or script URL.");
   }
+
+  document.querySelectorAll(".help-toggle").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var panelId = btn.getAttribute("aria-controls");
+      var panel = panelId ? document.getElementById(panelId) : null;
+      if (!panel) return;
+      var expanding = panel.hidden;
+      panel.hidden = !expanding;
+      btn.setAttribute("aria-expanded", expanding ? "true" : "false");
+    });
+  });
 })();

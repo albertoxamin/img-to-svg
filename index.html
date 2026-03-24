@@ -15,7 +15,15 @@
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://albertoxamin.github.io/img-to-svg/" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <meta name="theme-color" content="#0f1419" />
+    <meta name="theme-color" content="#ececec" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1e1e1e" media="(prefers-color-scheme: dark)" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
 
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_US" />
@@ -65,18 +73,18 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <a class="skip-link" href="#main">Skip to editor</a>
     <div class="app">
       <header class="header">
         <h1>Raster → SVG</h1>
         <p class="subtitle">
-          JPG/PNG traced in your browser with
+          Convert JPG or PNG to SVG in your browser — nothing is uploaded. Powered by
           <a href="https://github.com/jankovicsandras/imagetracerjs" target="_blank" rel="noopener">imagetracerjs</a>.
-          Palette 2–8 colors (default ~4).
         </p>
       </header>
 
-      <main>
-      <section class="panel workspace">
+      <main id="main">
+      <section class="panel workspace" aria-label="Image to SVG workspace">
         <div class="workspace-toolbar">
           <label class="dropzone workspace-dropzone" id="dropzone">
             <input type="file" id="fileInput" accept="image/jpeg,image/png,image/jpg" hidden />
@@ -84,18 +92,27 @@
           </label>
           <div class="workspace-side">
             <div class="row workspace-colors-row">
-              <label for="colorCount">Colors</label>
-              <input type="range" id="colorCount" min="2" max="8" value="4" step="1" />
+              <label for="colorCount">Color count</label>
+              <input type="range" id="colorCount" min="2" max="8" value="4" step="1" aria-describedby="paletteHelpSummary" />
               <output id="colorCountOut" for="colorCount">4</output>
             </div>
             <div class="palette-picker-block">
-              <div class="palette-picker-label">Trace palette</div>
+              <div class="palette-picker-label">Palette swatches</div>
               <div class="palette-picker-panel" id="palettePickerPanel">
-                <p class="hint palette-picker-hint">
-                  Swatches are chosen from the image (same scaled raster as tracing) to spread apart in perceptual color
-                  space. Click a swatch, then click the preview image to set that color. Change the color count to
-                  re-sample automatically.
+                <p class="hint palette-picker-hint" id="paletteHelpSummary">
+                  Select a swatch, then click the source image to sample. Changing the count re-samples automatically.
+                  <span class="hint-inline-wrap">
+                    <button type="button" class="help-toggle" aria-expanded="false" aria-controls="paletteHelpBody" id="paletteHelpBtn">
+                      How it works
+                    </button>
+                  </span>
                 </p>
+                <div class="help-panel" id="paletteHelpBody" role="region" aria-labelledby="paletteHelpBtn" hidden>
+                  <p class="hint help-panel-text">
+                    Swatches are picked from the same scaled raster used for tracing and spread apart in perceptual color
+                    space. Use the refresh control next to the swatches to re-sample without changing the count.
+                  </p>
+                </div>
                 <div class="palette-swatches-row">
                   <div class="palette-swatches" id="paletteSwatches" role="list" aria-label="Trace palette colors"></div>
                   <button
@@ -116,19 +133,28 @@
               </div>
             </div>
             <p class="hint" id="scaleNote" hidden></p>
-            <p class="error" id="errorBox" hidden></p>
-            <p class="status" id="statusBox">No image loaded.</p>
+            <p class="error" id="errorBox" role="alert" hidden></p>
+            <p class="status" id="statusBox" role="status" aria-live="polite" aria-atomic="true">No image loaded.</p>
           </div>
         </div>
 
-        <h2 class="workspace-section-title">Preview</h2>
         <div class="preview-grid">
-          <div class="preview-card">
-            <h3>Source &amp; exclusion mask</h3>
+          <div class="preview-card preview-card--source">
+            <h3>Source</h3>
             <p class="mask-help" id="maskHelp" hidden>
-              Paint with <strong>Exclude</strong> to omit regions. Each separate painted area uses the
-              <strong>average color along its own edge</strong> (8-connected regions). Multiple disconnected selections get independent fills for trace and preview.
+              Use the toolbar on the preview to open the mask editor, then paint with <strong>Exclude</strong> to omit regions.
+              <span class="hint-inline-wrap">
+                <button type="button" class="help-toggle" aria-expanded="false" aria-controls="maskHelpBody" id="maskHelpBtn">
+                  Fill details
+                </button>
+              </span>
             </p>
+            <div class="help-panel" id="maskHelpBody" role="region" aria-labelledby="maskHelpBtn" hidden>
+              <p class="hint help-panel-text">
+                Each separate painted area uses the <strong>average color along its own edge</strong> (8-connected regions).
+                Multiple disconnected regions get independent fills for trace and preview.
+              </p>
+            </div>
             <div class="mask-toolbar" id="maskToolbar" hidden>
               <label class="mask-field">
                 Tool
@@ -144,7 +170,33 @@
               </label>
               <button type="button" id="btnClearMask">Clear mask</button>
             </div>
-            <div class="preview-frame preview-frame--mask" id="originalHost"></div>
+            <div class="preview-frame preview-frame--mask">
+              <div class="preview-toolbox" id="sourcePreviewToolbox" hidden>
+                <button
+                  type="button"
+                  id="btnToggleMaskEdit"
+                  class="preview-toolbox-btn"
+                  aria-pressed="false"
+                  title="Exclusion mask"
+                  aria-label="Paint exclusion mask on the source image"
+                >
+                  <svg class="preview-toolbox-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                    <rect
+                      x="3.5"
+                      y="4"
+                      width="17"
+                      height="16"
+                      rx="2.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.65"
+                    />
+                    <rect x="5" y="6" width="6" height="12" rx="1.25" fill="currentColor" opacity="0.32" />
+                  </svg>
+                </button>
+              </div>
+              <div id="originalStageHost" class="original-stage-host"></div>
+            </div>
           </div>
           <div class="preview-card">
             <h3>SVG</h3>
@@ -158,9 +210,20 @@
             <span>3D print safe (preview + export)</span>
           </label>
           <p class="print-safe-hint">
-            Sets SVG <strong>width</strong> in mm and clamps each <code>&lt;path&gt;</code>
-            <strong>stroke-width</strong> to at least the nozzle size (user units). Previews match the export when values are valid. Does not widen narrow gaps <em>inside</em> a single filled path.
+            Sets export width (mm) and a minimum stroke so thin lines stay printable.
+            <span class="hint-inline-wrap">
+              <button type="button" class="help-toggle" aria-expanded="false" aria-controls="printSafeHelpBody" id="printSafeHelpBtn">
+                Technical details
+              </button>
+            </span>
           </p>
+          <div class="help-panel" id="printSafeHelpBody" role="region" aria-labelledby="printSafeHelpBtn" hidden>
+            <p class="hint help-panel-text">
+              Sets SVG <strong>width</strong> in mm and clamps each <code>&lt;path&gt;</code>
+              <strong>stroke-width</strong> to at least the nozzle size (user units). Previews match the export when values are valid.
+              Does not widen narrow gaps <em>inside</em> a single filled path.
+            </p>
+          </div>
           <div class="print-safe-fields" id="printSafeFields" hidden>
             <label class="print-safe-field">
               Width (mm)
@@ -174,19 +237,27 @@
         </div>
 
         <div class="actions">
-          <button type="button" id="btnDownloadSvg" disabled>Download combined SVG</button>
-          <button type="button" id="btnDownloadZip" disabled>Download layers (ZIP)</button>
+          <button type="button" id="btnDownloadSvg" class="btn-primary" disabled>Download combined SVG</button>
+          <button type="button" id="btnDownloadZip" class="btn-primary" disabled>Download layers (ZIP)</button>
         </div>
 
-        <h2 class="workspace-section-title workspace-section-title--colors">Colors</h2>
+        <h2 class="workspace-section-title workspace-section-title--colors">Layers by color</h2>
         <p class="colors-hint" id="colorsHint" hidden>
-          Click the card to select (multi-select). <strong>Merge selected</strong> replaces those fills with their average color. Use the eye to view a layer fullscreen.
+          Click cards to multi-select. <strong>Merge selected</strong> averages those fills. The eye icon opens a fullscreen preview.
+          <span class="hint-inline-wrap">
+            <button type="button" class="help-toggle" aria-expanded="false" aria-controls="colorsHelpBody" id="colorsHelpBtn">
+              More
+            </button>
+          </span>
         </p>
+        <div class="help-panel" id="colorsHelpBody" role="region" aria-labelledby="colorsHelpBtn" hidden>
+          <p class="hint help-panel-text">Selection is toggled per card. Clear selection resets the highlight without changing the trace.</p>
+        </div>
         <div class="colors-toolbar" id="colorsToolbar" hidden>
           <button type="button" id="btnMergeColors" disabled>Merge selected</button>
           <button type="button" id="btnClearColorSelection" disabled>Clear selection</button>
         </div>
-        <p class="colors-empty" id="colorsEmpty">Load an image to see per-color layers.</p>
+        <p class="colors-empty" id="colorsEmpty">After tracing, each fill color appears as a layer card below.</p>
         <div class="colors-grid" id="colorsGrid" hidden></div>
       </section>
       </main>
